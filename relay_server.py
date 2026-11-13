@@ -300,7 +300,7 @@ class RelayServer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>荒島生存：無盡冒險 (這是測試版本) - 官方最新版本下載</title>
+    <title>這是測試版本 - 官方最新版本下載</title>
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{
@@ -466,7 +466,7 @@ class RelayServer:
     <div class="container">
         <div class="header">
             <div class="logo">🌴🏕️⚔️</div>
-            <div class="title">荒島生存：無盡冒險 (這是測試版本)</div>
+            <div class="title">這是測試版本</div>
             <div class="subtitle">PC 與 Android 手機跨平台・全球免 IP 冒險大世界</div>
             <div class="badge-row">
                 <span class="badge badge-ver">最新版本：{ver}</span>
