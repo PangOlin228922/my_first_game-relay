@@ -108,7 +108,6 @@ class PlayerRegistry:
         self.save()
 
     def get_all_players(self) -> list:
-        # Sort by last_seen descending
         return sorted(
             self.players.values(),
             key=lambda x: x.get("last_seen", ""),
@@ -141,7 +140,35 @@ class RelayServer:
         except Exception:
             pass
 
-    def build_dev_html(self) -> str:
+    def build_dev_html(self, authorized: bool) -> str:
+        if not authorized:
+            return f"""<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rust2D 開發者驗證</title>
+    <style>
+        body {{ background: #0d1117; color: #c9d1d9; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+        .card {{ background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 32px; width: 360px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }}
+        h2 {{ color: #f1c40f; margin-top: 0; }}
+        input {{ width: 90%; padding: 10px; margin: 16px 0; border: 1px solid #30363d; border-radius: 6px; background: #0d1117; color: #fff; font-size: 15px; text-align: center; }}
+        button {{ width: 96%; padding: 10px; background: #238636; border: none; border-radius: 6px; color: #fff; font-weight: bold; font-size: 15px; cursor: pointer; }}
+        button:hover {{ background: #2ea043; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🔒 開發者權限驗證</h2>
+        <p style="color:#8b949e; font-size:14px;">此頁面僅供遊戲開發團隊檢視全服玩家資料庫</p>
+        <form method="GET" action="/">
+            <input type="password" name="key" placeholder="請輸入開發者存取金鑰" required autofocus />
+            <button type="submit">解鎖資料庫</button>
+        </form>
+    </div>
+</body>
+</html>"""
+
         players = self.registry.get_all_players()
         rows = ""
         for p in players:
@@ -175,7 +202,7 @@ class RelayServer:
         body {{
             background: #0d1117;
             color: #c9d1d9;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
             padding: 24px;
         }}
@@ -276,15 +303,14 @@ class RelayServer:
         </table>
     </div>
 </body>
-</html>
-"""
+</html>"""
 
     async def handle_client(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
         peer = writer.get_extra_info("peername")
         client_ip = peer[0] if peer else "Unknown"
-        role: str = "NONE"  # "HOST" | "CLIENT"
+        role: str = "NONE"
         my_room: Optional[Room] = None
         my_client_id: int = 0
         current_player_name: str = "生還者"
@@ -298,34 +324,27 @@ class RelayServer:
                 if not line:
                     continue
 
-                # 0. 支援 HTTP GET /dev?key=xxx 瀏覽器即時查看 (開發者網頁後台)
+                # 0. 支援 HTTP 瀏覽器即時查看 (免設定、支援網頁表單解鎖)
                 if line.startswith("GET ") and "HTTP/" in line:
-                    # 讀完剩餘的 HTTP headers
                     while True:
                         hdr = await reader.readline()
                         if not hdr or hdr == b"\r\n" or hdr == b"\n":
                             break
                     path = line.split(" ")[1] if len(line.split(" ")) > 1 else "/"
-                    if f"key={DEV_SECRET_KEY}" in path:
-                        body = self.build_dev_html().encode("utf-8")
-                        header = (
+                    if path == "/favicon.ico":
+                        resp = b"HTTP/1.1 204 No Content\r\n\r\n"
+                    else:
+                        is_auth = (f"key={DEV_SECRET_KEY}" in path)
+                        html_bytes = self.build_dev_html(is_auth).encode("utf-8")
+                        resp = (
                             f"HTTP/1.1 200 OK\r\n"
                             f"Content-Type: text/html; charset=utf-8\r\n"
-                            f"Content-Length: {len(body)}\r\n"
+                            f"Content-Length: {len(html_bytes)}\r\n"
                             f"Connection: close\r\n\r\n"
-                        )
-                        writer.write(header.encode("utf-8") + body)
-                        await writer.drain()
-                    else:
-                        body = b"<h3>403 Forbidden - Developer Key Required</h3><p>Please provide ?key=... to access the developer dashboard.</p>"
-                        header = (
-                            f"HTTP/1.1 403 Forbidden\r\n"
-                            f"Content-Type: text/html; charset=utf-8\r\n"
-                            f"Content-Length: {len(body)}\r\n"
-                            f"Connection: close\r\n\r\n"
-                        )
-                        writer.write(header.encode("utf-8") + body)
-                        await writer.drain()
+                        ).encode("utf-8") + html_bytes
+                    writer.write(resp)
+                    await writer.drain()
+                    await asyncio.sleep(0.05)
                     break
 
                 # 1. 開發者協議: DEV_QUERY_PLAYERS|<secret_key>
@@ -528,7 +547,6 @@ async def main() -> None:
     server = await asyncio.start_server(relay.handle_client, host, port)
     addrs = ", ".join(str(sock.getsockname()) for sock in server.sockets or [])
     print(f"[*] Rust2D Global Relay & Player DB Server listening on {addrs}", flush=True)
-    print(f"[*] Dev Web Dashboard available via HTTP GET with ?key={DEV_SECRET_KEY}", flush=True)
 
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
