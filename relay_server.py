@@ -16,6 +16,41 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple
 
 DEV_SECRET_KEY = "bonegold_dev_2026"
+
+VERSION_INFO_FILE = "version_info.json"
+DOWNLOADS_DIR = "downloads"
+
+DEFAULT_VERSION_INFO = {
+    "version": "v0.67.67",
+    "version_code": 6767,
+    "release_date": "2026-11-13",
+    "title": "背包長按拖拽 & 多人副本同步重大更新",
+    "changelog": [
+        "🎒 背包與 64 格安全大寶箱長按拖拽物品 (手機觸控與電腦滑鼠完美支援)",
+        "⏳ 多人副本 10 秒保留不重置 (陣亡或離場 10 秒內重進維持原進度)",
+        "⚔️ 完全同步副本首領血量與怪物擊殺狀態 (Boss 殘血不回滿)",
+        "🌐 全球免 IP 連線伺服器穩定性升級與自動修復"
+    ],
+    "apk_filename": "Rust2D_Latest.apk",
+    "exe_filename": "Rust2D_Latest.exe"
+}
+
+def load_version_info() -> dict:
+    if os.path.exists(VERSION_INFO_FILE):
+        try:
+            with open(VERSION_INFO_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return DEFAULT_VERSION_INFO
+
+def save_version_info(data: dict) -> None:
+    try:
+        with open(VERSION_INFO_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[!] Failed to save version info: {e}", flush=True)
+
 DB_FILE = "players_db.json"
 
 
@@ -204,6 +239,234 @@ class RelayServer:
             await writer.wait_closed()
         except Exception:
             pass
+
+
+    def build_download_html(self) -> str:
+        vinfo = load_version_info()
+        ver = vinfo.get("version", "v0.67.67")
+        vdate = vinfo.get("release_date", "2026-11-13")
+        vtitle = vinfo.get("title", "最新版本更新")
+        changelog_items = "".join(f"<li>{item}</li>" for item in vinfo.get("changelog", []))
+        total_players = len(self.registry.players)
+        active_rooms = len(self.rooms)
+
+        apk_path = os.path.join(DOWNLOADS_DIR, vinfo.get("apk_filename", "Rust2D_Latest.apk"))
+        exe_path = os.path.join(DOWNLOADS_DIR, vinfo.get("exe_filename", "Rust2D_Latest.exe"))
+        apk_size = f"{os.path.getsize(apk_path) / 1024:.1f} KB" if os.path.exists(apk_path) else "約 165 KB"
+        exe_size = f"{os.path.getsize(exe_path) / 1024:.1f} KB" if os.path.exists(exe_path) else "約 580 KB"
+
+        return f"""<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>荒島生存：無盡冒險 (Rust2D) - 官方最新版本下載</title>
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+            color: #c9d1d9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px;
+        }}
+        .container {{
+            max-width: 680px;
+            width: 100%;
+            background: rgba(22, 27, 34, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            padding: 32px 24px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+        }}
+        .header {{
+            text-align: center;
+            margin-bottom: 28px;
+        }}
+        .logo {{
+            font-size: 54px;
+            margin-bottom: 8px;
+            filter: drop-shadow(0 4px 12px rgba(243, 156, 18, 0.4));
+        }}
+        .title {{
+            font-size: 26px;
+            font-weight: 800;
+            color: #f1c40f;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }}
+        .subtitle {{
+            color: #8b949e;
+            font-size: 14px;
+        }}
+        .badge-row {{
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+        }}
+        .badge {{
+            display: inline-block;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }}
+        .badge-ver {{ color: #2ecc71; border-color: rgba(46, 204, 113, 0.4); }}
+        .badge-live {{ color: #58a6ff; }}
+
+        .btn-group {{
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin: 28px 0;
+        }}
+        @media (min-width: 540px) {{
+            .btn-group {{
+                flex-direction: row;
+            }}
+        }}
+        .btn {{
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 18px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 17px;
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            border: none;
+            cursor: pointer;
+        }}
+        .btn-apk {{
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: #ffffff;
+        }}
+        .btn-apk:hover {{
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(46, 204, 113, 0.4);
+        }}
+        .btn-exe {{
+            background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+            color: #ffffff;
+        }}
+        .btn-exe:hover {{
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(52, 152, 219, 0.4);
+        }}
+        .btn small {{
+            font-size: 12px;
+            font-weight: 400;
+            opacity: 0.85;
+            margin-top: 4px;
+        }}
+
+        .card-section {{
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }}
+        .card-section h3 {{
+            color: #e6edf3;
+            font-size: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .card-section ul {{
+            padding-left: 20px;
+            color: #8b949e;
+            font-size: 14px;
+            line-height: 1.8;
+        }}
+        .card-section ul li {{
+            margin-bottom: 4px;
+        }}
+        .guide-box {{
+            background: rgba(88, 166, 255, 0.08);
+            border: 1px dashed rgba(88, 166, 255, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #8b949e;
+            line-height: 1.6;
+        }}
+        .guide-box strong {{
+            color: #58a6ff;
+        }}
+        .footer {{
+            text-align: center;
+            font-size: 12px;
+            color: #484f58;
+            margin-top: 24px;
+        }}
+        .footer a {{
+            color: #58a6ff;
+            text-decoration: none;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🌴🏕️⚔️</div>
+            <div class="title">荒島生存：無盡冒險 (Rust2D)</div>
+            <div class="subtitle">PC 與 Android 手機跨平台・全球免 IP 冒險大世界</div>
+            <div class="badge-row">
+                <span class="badge badge-ver">最新版本：{ver}</span>
+                <span class="badge badge-live">🟢 全球伺服器運作中</span>
+                <span class="badge">冒險者：{total_players} 位</span>
+                <span class="badge">即時房間：{active_rooms} 間</span>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <a href="/download/apk" class="btn btn-apk">
+                <span>📱 下載 Android 手機版</span>
+                <small>APK 安裝檔 ({apk_size})</small>
+            </a>
+            <a href="/download/exe" class="btn btn-exe">
+                <span>💻 下載 PC 電腦免安裝版</span>
+                <small>EXE 執行檔 ({exe_size})</small>
+            </a>
+        </div>
+
+        <div class="card-section">
+            <h3>📢 {vtitle} ({vdate})</h3>
+            <ul>
+                {changelog_items}
+            </ul>
+        </div>
+
+        <div class="guide-box">
+            <strong>💡 安裝與遊玩提示：</strong><br>
+            • <strong>手機版 (Android)</strong>：點擊下載後在瀏覽器通知點開安裝。若出現「有害應用程式」或安全提示，請點擊「更多詳細資料」並選擇「仍要安裝」即可。<br>
+            • <strong>電腦版 (PC)</strong>：下載後直接雙擊執行即可開始遊玩，無須複雜安裝。<br>
+            • <strong>朋友連線</strong>：無論在手機或電腦上，點擊「🌐 連線 / 多人大世界」即可看到彼此的房間並直接跨平台加入！
+        </div>
+
+        <div class="footer">
+            Rust2D Survival Multiplayer &copy; 2026 ・ <a href="/dev">開發者後台</a>
+        </div>
+    </div>
+</body>
+</html>"""
 
     def build_dev_html(self, authorized: bool) -> str:
         if not authorized:
@@ -438,10 +701,63 @@ class RelayServer:
                             f"Location: /dev?key={DEV_SECRET_KEY}\r\n"
                             f"Connection: close\r\n\r\n"
                         ).encode("utf-8")
-                    else:
+                    elif path == "/download/apk":
+                        vinfo = load_version_info()
+                        apk_fname = vinfo.get("apk_filename", "Rust2D_Latest.apk")
+                        apk_file = os.path.join(DOWNLOADS_DIR, apk_fname)
+                        if os.path.exists(apk_file):
+                            with open(apk_file, "rb") as f:
+                                data = f.read()
+                            resp = (
+                                f"HTTP/1.1 200 OK\r\n"
+                                f"Content-Type: application/vnd.android.package-archive\r\n"
+                                f"Content-Disposition: attachment; filename=\"{apk_fname}\"\r\n"
+                                f"Content-Length: {len(data)}\r\n"
+                                f"Connection: close\r\n\r\n"
+                            ).encode("utf-8") + data
+                        else:
+                            err = b"APK file not found on server."
+                            resp = f"HTTP/1.1 404 Not Found\r\nContent-Length: {len(err)}\r\n\r\n".encode("utf-8") + err
+                    elif path == "/download/exe":
+                        vinfo = load_version_info()
+                        exe_fname = vinfo.get("exe_filename", "Rust2D_Latest.exe")
+                        exe_file = os.path.join(DOWNLOADS_DIR, exe_fname)
+                        if os.path.exists(exe_file):
+                            with open(exe_file, "rb") as f:
+                                data = f.read()
+                            resp = (
+                                f"HTTP/1.1 200 OK\r\n"
+                                f"Content-Type: application/octet-stream\r\n"
+                                f"Content-Disposition: attachment; filename=\"{exe_fname}\"\r\n"
+                                f"Content-Length: {len(data)}\r\n"
+                                f"Connection: close\r\n\r\n"
+                            ).encode("utf-8") + data
+                        else:
+                            err = b"EXE file not found on server."
+                            resp = f"HTTP/1.1 404 Not Found\r\nContent-Length: {len(err)}\r\n\r\n".encode("utf-8") + err
+                    elif path == "/api/version":
+                        vinfo = load_version_info()
+                        j_data = json.dumps(vinfo, ensure_ascii=False).encode("utf-8")
+                        resp = (
+                            f"HTTP/1.1 200 OK\r\n"
+                            f"Content-Type: application/json; charset=utf-8\r\n"
+                            f"Access-Control-Allow-Origin: *\r\n"
+                            f"Content-Length: {len(j_data)}\r\n"
+                            f"Connection: close\r\n\r\n"
+                        ).encode("utf-8") + j_data
+                    elif path == "/dev":
                         key = qs.get("key", [""])[0]
                         is_auth = (key == DEV_SECRET_KEY)
                         html_bytes = self.build_dev_html(is_auth).encode("utf-8")
+                        resp = (
+                            f"HTTP/1.1 200 OK\r\n"
+                            f"Content-Type: text/html; charset=utf-8\r\n"
+                            f"Content-Length: {len(html_bytes)}\r\n"
+                            f"Connection: close\r\n\r\n"
+                        ).encode("utf-8") + html_bytes
+                    else:
+                        # 預設首頁與 /download 導向專屬下載網頁
+                        html_bytes = self.build_download_html().encode("utf-8")
                         resp = (
                             f"HTTP/1.1 200 OK\r\n"
                             f"Content-Type: text/html; charset=utf-8\r\n"
@@ -452,6 +768,16 @@ class RelayServer:
                     await writer.drain()
                     await asyncio.sleep(0.05)
                     break
+
+                                # 1b. 版本檢查協議: CHECK_VERSION|<client_version>
+                if line.startswith("CHECK_VERSION|"):
+                    client_ver = line.split("|", 1)[1].strip() if len(line.split("|")) > 1 else ""
+                    vinfo = load_version_info()
+                    srv_ver = vinfo.get("version", "v0.67.67")
+                    has_update = 1 if (client_ver != srv_ver and client_ver != "") else 0
+                    c_notes = "; ".join(vinfo.get("changelog", []))
+                    await self.send_line(writer, f"VERSION_INFO|{srv_ver}|{has_update}|/download|{c_notes}")
+                    continue
 
                 # 1. 開發者協議: DEV_QUERY_PLAYERS|<secret_key>
                 if line.startswith("DEV_QUERY_PLAYERS|"):
