@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Rust2D / 幫我試玩看看 全球多人大廳與封包中繼伺服器 (Global Lobby & TCP Relay Server)
 + 開發者專用：全服遊玩玩家資料庫 (Developer-Only Player Analytics & Registry)
@@ -17,14 +17,14 @@ from typing import Dict, Optional, Tuple
 
 DEV_SECRET_KEY = "bonegold_dev_2026"
 
-VERSION_INFO_FILE = "version_info.json"
-DOWNLOADS_DIR = "downloads"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+VERSION_INFO_FILE = os.path.join(SCRIPT_DIR, "version_info.json")
+DOWNLOADS_DIR = os.path.join(SCRIPT_DIR, "downloads")
 
 def find_release_file(filename: str):
-    script_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        os.path.join(script_dir, "downloads", filename),
-        os.path.join(script_dir, filename),
+        os.path.join(DOWNLOADS_DIR, filename),
+        os.path.join(SCRIPT_DIR, filename),
         os.path.join("downloads", filename),
         filename,
     ]
@@ -34,15 +34,14 @@ def find_release_file(filename: str):
     return None
 
 DEFAULT_VERSION_INFO = {
-    "version": "v0.67.67",
-    "version_code": 6767,
+    "version": "v0.67.73",
+    "version_code": 6773,
     "release_date": "2026-11-13",
     "title": "背包操作與多人副本同步更新",
     "changelog": [
-        "支援背包與儲物箱長按拖曳物品",
-        "多人副本新增離場 10 秒進度保留機制",
-        "修正副本首領血量與怪物狀態同步問題",
-        "連線通訊與斷線重連邏輯優化"
+        "修復製造面板點擊觸控判定與配方對齊",
+        "同步手機與電腦端特製料理與藥水增益效果",
+        "優化客戶端版本比對機制與自動下載更新流程"
     ],
     "apk_filename": "game.apk",
     "exe_filename": "game.exe"
@@ -1110,3 +1109,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         sys.exit(0)
+
+
