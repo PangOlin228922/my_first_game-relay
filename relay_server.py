@@ -64,6 +64,15 @@ def save_version_info(data: dict) -> None:
     except Exception as e:
         print(f"[!] Failed to save version info: {e}", flush=True)
 
+def is_version_newer(srv_ver: str, client_ver: str) -> bool:
+    try:
+        def parse_v(v: str):
+            clean = v.lstrip("vV").strip()
+            return [int(x) for x in clean.split(".") if x.isdigit()]
+        return parse_v(srv_ver) > parse_v(client_ver)
+    except Exception:
+        return False
+
 DB_FILE = "players_db.json"
 
 
@@ -745,6 +754,12 @@ class RelayServer:
                             f"Location: /dev?key={DEV_SECRET_KEY}\r\n"
                             f"Connection: close\r\n\r\n"
                         ).encode("utf-8")
+                    elif path == "/download":
+                        resp = (
+                            f"HTTP/1.1 302 Found\r\n"
+                            f"Location: /download/exe\r\n"
+                            f"Connection: close\r\n\r\n"
+                        ).encode("utf-8")
                     elif path == "/download/apk":
                         vinfo = load_version_info()
                         apk_fname = vinfo.get("apk_filename", "game.apk")
@@ -817,10 +832,10 @@ class RelayServer:
                 if line.startswith("CHECK_VERSION|"):
                     client_ver = line.split("|", 1)[1].strip() if len(line.split("|")) > 1 else ""
                     vinfo = load_version_info()
-                    srv_ver = vinfo.get("version", "v0.67.67")
-                    has_update = 1 if (client_ver != srv_ver and client_ver != "") else 0
+                    srv_ver = vinfo.get("version", "v0.67.68")
+                    has_update = 1 if is_version_newer(srv_ver, client_ver) else 0
                     c_notes = "; ".join(vinfo.get("changelog", []))
-                    await self.send_line(writer, f"VERSION_INFO|{srv_ver}|{has_update}|/download|{c_notes}")
+                    await self.send_line(writer, f"VERSION_INFO|{srv_ver}|{has_update}|/download/exe|{c_notes}")
                     continue
 
                 # 1. 開發者協議: DEV_QUERY_PLAYERS|<secret_key>
