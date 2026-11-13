@@ -300,7 +300,7 @@ class RelayServer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>荒島生存：無盡冒險 (Rust2D) - 官方最新版本下載</title>
+    <title>荒島生存：無盡冒險 (這是測試版本) - 官方最新版本下載</title>
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{
@@ -466,7 +466,7 @@ class RelayServer:
     <div class="container">
         <div class="header">
             <div class="logo">🌴🏕️⚔️</div>
-            <div class="title">荒島生存：無盡冒險 (Rust2D)</div>
+            <div class="title">荒島生存：無盡冒險 (這是測試版本)</div>
             <div class="subtitle">PC 與 Android 手機跨平台・全球免 IP 冒險大世界</div>
             <div class="badge-row">
                 <span class="badge badge-ver">最新版本：{ver}</span>
@@ -502,7 +502,7 @@ class RelayServer:
         </div>
 
         <div class="footer">
-            Rust2D Survival Multiplayer &copy; 2026 ・ <a href="/dev">開發者後台</a>
+            這是測試版本 &copy; 2026 ・ <a href="/dev">開發者後台</a>
         </div>
     </div>
 </body>
@@ -515,7 +515,7 @@ class RelayServer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rust2D 開發者驗證</title>
+    <title>這是測試版本 開發者驗證</title>
     <style>
         body {{ background: #0d1117; color: #c9d1d9; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
         .card {{ background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 32px; width: 360px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }}
@@ -568,7 +568,7 @@ class RelayServer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>【開發者專用】全服玩家資料庫・Rust2D 控制台</title>
+    <title>【開發者專用】全服玩家資料庫・這是測試版本 控制台</title>
     <style>
         body {{
             background: #0d1117;
