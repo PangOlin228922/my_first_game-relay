@@ -1,0 +1,30 @@
+{
+  "PANGOLINS": {
+    "name": "PANGOLINS",
+    "platform": "PC",
+    "first_seen": "2026-11-13 00:21:32",
+    "last_seen": "2026-11-13 00:21:32",
+    "ip": "Local Host",
+    "world": 2,
+    "hp": 504,
+    "max_hp": 504,
+    "attack": 185,
+    "defense": 183,
+    "play_count": 8,
+    "last_action": "SAVE"
+  },
+  "翊展": {
+    "name": "翊展",
+    "platform": "Android",
+    "first_seen": "2026-11-05 21:25:33",
+    "last_seen": "2026-11-05 21:25:33",
+    "ip": "Remote Client",
+    "world": 1,
+    "hp": 100,
+    "max_hp": 100,
+    "attack": 25,
+    "defense": 10,
+    "play_count": 3,
+    "last_action": "INVITE"
+  }
+}
