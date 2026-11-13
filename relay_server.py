@@ -20,6 +20,19 @@ DEV_SECRET_KEY = "bonegold_dev_2026"
 VERSION_INFO_FILE = "version_info.json"
 DOWNLOADS_DIR = "downloads"
 
+def find_release_file(filename: str):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(script_dir, "downloads", filename),
+        os.path.join(script_dir, filename),
+        os.path.join("downloads", filename),
+        filename,
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return None
+
 DEFAULT_VERSION_INFO = {
     "version": "v0.67.67",
     "version_code": 6767,
@@ -250,10 +263,10 @@ class RelayServer:
         total_players = len(self.registry.players)
         active_rooms = len(self.rooms)
 
-        apk_path = os.path.join(DOWNLOADS_DIR, vinfo.get("apk_filename", "Rust2D_Latest.apk"))
-        exe_path = os.path.join(DOWNLOADS_DIR, vinfo.get("exe_filename", "Rust2D_Latest.exe"))
-        apk_size = f"{os.path.getsize(apk_path) / 1024:.1f} KB" if os.path.exists(apk_path) else "約 165 KB"
-        exe_size = f"{os.path.getsize(exe_path) / 1024:.1f} KB" if os.path.exists(exe_path) else "約 580 KB"
+        apk_path = find_release_file(vinfo.get("apk_filename", "Rust2D_Latest.apk"))
+        exe_path = find_release_file(vinfo.get("exe_filename", "Rust2D_Latest.exe"))
+        apk_size = f"{os.path.getsize(apk_path) / 1024:.1f} KB" if (apk_path and os.path.exists(apk_path)) else "約 168 KB"
+        exe_size = f"{os.path.getsize(exe_path) / 1024:.1f} KB" if (exe_path and os.path.exists(exe_path)) else "約 582 KB"
 
         return f"""<!DOCTYPE html>
 <html lang="zh-TW">
@@ -704,8 +717,8 @@ class RelayServer:
                     elif path == "/download/apk":
                         vinfo = load_version_info()
                         apk_fname = vinfo.get("apk_filename", "Rust2D_Latest.apk")
-                        apk_file = os.path.join(DOWNLOADS_DIR, apk_fname)
-                        if os.path.exists(apk_file):
+                        apk_file = find_release_file(apk_fname)
+                        if apk_file and os.path.exists(apk_file):
                             with open(apk_file, "rb") as f:
                                 data = f.read()
                             resp = (
@@ -721,8 +734,8 @@ class RelayServer:
                     elif path == "/download/exe":
                         vinfo = load_version_info()
                         exe_fname = vinfo.get("exe_filename", "Rust2D_Latest.exe")
-                        exe_file = os.path.join(DOWNLOADS_DIR, exe_fname)
-                        if os.path.exists(exe_file):
+                        exe_file = find_release_file(exe_fname)
+                        if exe_file and os.path.exists(exe_file):
                             with open(exe_file, "rb") as f:
                                 data = f.read()
                             resp = (
