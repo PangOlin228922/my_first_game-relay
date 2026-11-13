@@ -1,14 +1,14 @@
-{
-  "version": "v0.67.67",
-  "version_code": 6767,
-  "release_date": "2026-11-13",
-  "title": "背包操作與多人副本同步更新",
-  "changelog": [
-    "支援背包與儲物箱長按拖曳物品",
-    "多人副本新增離場 10 秒進度保留機制",
-    "修正副本首領血量與怪物狀態同步問題",
-    "連線通訊與斷線重連邏輯優化"
-  ],
-  "apk_filename": "game.apk",
-  "exe_filename": "game.exe"
+﻿{
+    "version":  "v0.67.68",
+    "version_code":  6768,
+    "release_date":  "2026-11-13",
+    "title":  "背包操作與多人副本同步更新",
+    "changelog":  [
+                      "支援背包與儲物箱長按拖曳物品",
+                      "多人副本新增離場 10 秒進度保留機制",
+                      "修正副本首領血量與怪物狀態同步問題",
+                      "連線通訊與斷線重連邏輯優化"
+                  ],
+    "apk_filename":  "game.apk",
+    "exe_filename":  "game.exe"
 }
