@@ -34,8 +34,8 @@ def find_release_file(filename: str):
     return None
 
 DEFAULT_VERSION_INFO = {
-    "version": "v0.67.73",
-    "version_code": 6773,
+    "version": "v0.67.75",
+    "version_code": 6775,
     "release_date": "2026-11-13",
     "title": "背包操作與多人副本同步更新",
     "changelog": [
@@ -1109,5 +1109,7 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         sys.exit(0)
+
+
 
 
