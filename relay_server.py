@@ -37,15 +37,15 @@ DEFAULT_VERSION_INFO = {
     "version": "v0.67.67",
     "version_code": 6767,
     "release_date": "2026-11-13",
-    "title": "背包長按拖拽 & 多人副本同步重大更新",
+    "title": "背包操作與多人副本同步更新",
     "changelog": [
-        "🎒 背包與 64 格安全大寶箱長按拖拽物品 (手機觸控與電腦滑鼠完美支援)",
-        "⏳ 多人副本 10 秒保留不重置 (陣亡或離場 10 秒內重進維持原進度)",
-        "⚔️ 完全同步副本首領血量與怪物擊殺狀態 (Boss 殘血不回滿)",
-        "🌐 全球免 IP 連線伺服器穩定性升級與自動修復"
+        "支援背包與儲物箱長按拖曳物品",
+        "多人副本新增離場 10 秒進度保留機制",
+        "修正副本首領血量與怪物狀態同步問題",
+        "連線通訊與斷線重連邏輯優化"
     ],
-    "apk_filename": "Rust2D_Latest.apk",
-    "exe_filename": "Rust2D_Latest.exe"
+    "apk_filename": "game.apk",
+    "exe_filename": "game.exe"
 }
 
 def load_version_info() -> dict:
@@ -117,7 +117,7 @@ class PlayerRegistry:
         if name in self.wiped_players:
             self.wiped_players.discard(name)
             self.save_wiped()
-            print(f"[✅ WIPE CONSUMED] Discharged pending wipe for '{name}'. Name is now free to reuse without repeat wipes.", flush=True)
+            print(f"[WIPE CONSUMED] Discharged pending wipe for '{name}'. Name is now free to reuse without repeat wipes.", flush=True)
             return True
         return False
 
@@ -125,7 +125,7 @@ class PlayerRegistry:
         """清空所有待清除標記，解除全部同名鎖定"""
         self.wiped_players.clear()
         self.save_wiped()
-        print("[🧹 ALL WIPES CLEARED] Wiped players registry cleared.", flush=True)
+        print("[ALL WIPES CLEARED] Wiped players registry cleared.", flush=True)
 
     def delete_and_wipe_player(self, name: str) -> bool:
         if not name:
@@ -133,7 +133,7 @@ class PlayerRegistry:
         if name in self.players:
             del self.players[name]
             self.save()
-            print(f"[🗑️ PLAYER WIPED] Removed '{name}' from DB.", flush=True)
+            print(f"[PLAYER WIPED] Removed '{name}' from DB.", flush=True)
         return True
 
     def clear_wiped_ack(self, name: str) -> None:
@@ -189,7 +189,7 @@ class PlayerRegistry:
                 "play_count": 1,
                 "last_action": action,
             }
-            print(f"[★ NEW PLAYER REGISTERED] '{name}' on {platform} (IP: {ip})", flush=True)
+            print(f"[NEW PLAYER REGISTERED] '{name}' on {platform} (IP: {ip})", flush=True)
         else:
             p = self.players[name]
             p["last_seen"] = now_str
@@ -208,7 +208,7 @@ class PlayerRegistry:
                 p["defense"] = defense
             p["play_count"] = p.get("play_count", 1) + 1
             p["last_action"] = action
-            print(f"[★ PLAYER ACTIVE] '{name}' (World {world}, HP {hp}/{max_hp}, Atk {atk}, Def {defense})", flush=True)
+            print(f"[PLAYER ACTIVE] '{name}' (World {world}, HP {hp}/{max_hp}, Atk {atk}, Def {defense})", flush=True)
         self.save()
 
     def get_all_players(self) -> list:
@@ -254,11 +254,11 @@ class RelayServer:
         if not online:
             self.registry.wiped_players.add(name)
             self.registry.save_wiped()
-            print(f"[🗑️ PLAYER WIPED] Offline player '{name}' queued for 1-time wipe on next connect.", flush=True)
+            print(f"[PLAYER WIPED] Offline player '{name}' queued for 1-time wipe on next connect.", flush=True)
         else:
             self.registry.wiped_players.discard(name)
             self.registry.save_wiped()
-            print(f"[💥 FORCE WIPE EXECUTED] Online player '{name}' wiped and kicked instantly. Name is clean.", flush=True)
+            print(f"[FORCE WIPE EXECUTED] Online player '{name}' wiped and kicked instantly. Name is clean.", flush=True)
         return True
 
     async def send_line(self, writer: asyncio.StreamWriter, line: str) -> bool:
@@ -290,54 +290,46 @@ class RelayServer:
         total_players = len(self.registry.players)
         active_rooms = len(self.rooms)
 
-        apk_path = find_release_file(vinfo.get("apk_filename", "Rust2D_Latest.apk"))
-        exe_path = find_release_file(vinfo.get("exe_filename", "Rust2D_Latest.exe"))
-        apk_size = f"{os.path.getsize(apk_path) / 1024:.1f} KB" if (apk_path and os.path.exists(apk_path)) else "約 168 KB"
-        exe_size = f"{os.path.getsize(exe_path) / 1024:.1f} KB" if (exe_path and os.path.exists(exe_path)) else "約 582 KB"
+        apk_path = find_release_file(vinfo.get("apk_filename", "game.apk"))
+        exe_path = find_release_file(vinfo.get("exe_filename", "game.exe"))
+        apk_size = f"{os.path.getsize(apk_path) / 1024:.1f} KB" if (apk_path and os.path.exists(apk_path)) else "168 KB"
+        exe_size = f"{os.path.getsize(exe_path) / 1024:.1f} KB" if (exe_path and os.path.exists(exe_path)) else "582 KB"
 
         return f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>這是測試版本 - 官方最新版本下載</title>
+    <title>這是測試版本</title>
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{
-            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
-            color: #c9d1d9;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #0f141c;
+            color: #d1d7e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 24px 16px;
+            padding: 32px 16px;
         }}
         .container {{
-            max-width: 680px;
+            max-width: 620px;
             width: 100%;
-            background: rgba(22, 27, 34, 0.95);
-            border: 1px solid #30363d;
-            border-radius: 16px;
-            padding: 32px 24px;
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
+            background: #161d27;
+            border: 1px solid #2a3442;
+            border-radius: 10px;
+            padding: 32px 28px;
         }}
         .header {{
             text-align: center;
-            margin-bottom: 28px;
-        }}
-        .logo {{
-            font-size: 54px;
-            margin-bottom: 8px;
-            filter: drop-shadow(0 4px 12px rgba(243, 156, 18, 0.4));
+            margin-bottom: 24px;
         }}
         .title {{
-            font-size: 26px;
-            font-weight: 800;
-            color: #f1c40f;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
+            font-size: 24px;
+            font-weight: 700;
+            color: #f0f6fc;
+            margin-bottom: 6px;
         }}
         .subtitle {{
             color: #8b949e;
@@ -346,29 +338,34 @@ class RelayServer:
         .badge-row {{
             display: flex;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             margin-top: 14px;
             flex-wrap: wrap;
         }}
         .badge {{
             display: inline-block;
-            background: #21262d;
-            border: 1px solid #30363d;
-            border-radius: 20px;
-            padding: 4px 12px;
-            font-size: 13px;
-            font-weight: 600;
+            background: #0f141c;
+            border: 1px solid #2a3442;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            color: #8b949e;
         }}
-        .badge-ver {{ color: #2ecc71; border-color: rgba(46, 204, 113, 0.4); }}
-        .badge-live {{ color: #58a6ff; }}
-
+        .badge-ver {{
+            color: #3fb950;
+            border-color: #238636;
+        }}
+        .badge-live {{
+            color: #58a6ff;
+            border-color: #1f6feb;
+        }}
         .btn-group {{
             display: flex;
             flex-direction: column;
-            gap: 16px;
-            margin: 28px 0;
+            gap: 12px;
+            margin: 24px 0;
         }}
-        @media (min-width: 540px) {{
+        @media (min-width: 520px) {{
             .btn-group {{
                 flex-direction: row;
             }}
@@ -379,76 +376,69 @@ class RelayServer:
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 18px 20px;
-            border-radius: 12px;
+            padding: 16px 18px;
+            border-radius: 8px;
             text-decoration: none;
-            font-weight: 700;
-            font-size: 17px;
-            transition: all 0.2s ease;
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-            border: none;
+            font-weight: 600;
+            font-size: 15px;
+            border: 1px solid transparent;
             cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
         }}
         .btn-apk {{
-            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            background: #238636;
             color: #ffffff;
+            border-color: #2ea043;
         }}
         .btn-apk:hover {{
-            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 24px rgba(46, 204, 113, 0.4);
+            background: #2ea043;
         }}
         .btn-exe {{
-            background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+            background: #1f6feb;
             color: #ffffff;
+            border-color: #388bfd;
         }}
         .btn-exe:hover {{
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 24px rgba(52, 152, 219, 0.4);
+            background: #388bfd;
         }}
         .btn small {{
             font-size: 12px;
             font-weight: 400;
-            opacity: 0.85;
+            opacity: 0.9;
             margin-top: 4px;
         }}
-
         .card-section {{
-            background: #0d1117;
-            border: 1px solid #21262d;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
+            background: #0f141c;
+            border: 1px solid #2a3442;
+            border-radius: 8px;
+            padding: 18px 20px;
+            margin-bottom: 18px;
         }}
         .card-section h3 {{
-            color: #e6edf3;
-            font-size: 16px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            color: #f0f6fc;
+            font-size: 15px;
+            margin-bottom: 10px;
         }}
         .card-section ul {{
             padding-left: 20px;
             color: #8b949e;
-            font-size: 14px;
+            font-size: 13px;
             line-height: 1.8;
         }}
         .card-section ul li {{
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }}
         .guide-box {{
-            background: rgba(88, 166, 255, 0.08);
-            border: 1px dashed rgba(88, 166, 255, 0.3);
+            background: #0f141c;
+            border: 1px solid #2a3442;
             border-radius: 8px;
-            padding: 12px 16px;
+            padding: 14px 18px;
             font-size: 13px;
             color: #8b949e;
-            line-height: 1.6;
+            line-height: 1.7;
         }}
         .guide-box strong {{
-            color: #58a6ff;
+            color: #c9d1d9;
         }}
         .footer {{
             text-align: center;
@@ -460,49 +450,51 @@ class RelayServer:
             color: #58a6ff;
             text-decoration: none;
         }}
+        .footer a:hover {{
+            text-decoration: underline;
+        }}
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">🌴🏕️⚔️</div>
             <div class="title">這是測試版本</div>
-            <div class="subtitle">PC 與 Android 手機跨平台・全球免 IP 冒險大世界</div>
+            <div class="subtitle">客戶端下載與伺服器狀態</div>
             <div class="badge-row">
-                <span class="badge badge-ver">最新版本：{ver}</span>
-                <span class="badge badge-live">🟢 全球伺服器運作中</span>
-                <span class="badge">冒險者：{total_players} 位</span>
-                <span class="badge">即時房間：{active_rooms} 間</span>
+                <span class="badge badge-ver">版本：{ver}</span>
+                <span class="badge badge-live">伺服器狀態：正常</span>
+                <span class="badge">已登記角色：{total_players}</span>
+                <span class="badge">活躍房間：{active_rooms}</span>
             </div>
         </div>
 
         <div class="btn-group">
             <a href="/download/apk" class="btn btn-apk">
-                <span>📱 下載 Android 手機版</span>
-                <small>APK 安裝檔 ({apk_size})</small>
+                <span>下載 Android 版</span>
+                <small>game.apk ({apk_size})</small>
             </a>
             <a href="/download/exe" class="btn btn-exe">
-                <span>💻 下載 PC 電腦免安裝版</span>
-                <small>EXE 執行檔 ({exe_size})</small>
+                <span>下載 Windows 版</span>
+                <small>game.exe ({exe_size})</small>
             </a>
         </div>
 
         <div class="card-section">
-            <h3>📢 {vtitle} ({vdate})</h3>
+            <h3>更新內容 ({vdate})</h3>
             <ul>
                 {changelog_items}
             </ul>
         </div>
 
         <div class="guide-box">
-            <strong>💡 安裝與遊玩提示：</strong><br>
-            • <strong>手機版 (Android)</strong>：點擊下載後在瀏覽器通知點開安裝。若出現「有害應用程式」或安全提示，請點擊「更多詳細資料」並選擇「仍要安裝」即可。<br>
-            • <strong>電腦版 (PC)</strong>：下載後直接雙擊執行即可開始遊玩，無須複雜安裝。<br>
-            • <strong>朋友連線</strong>：無論在手機或電腦上，點擊「🌐 連線 / 多人大世界」即可看到彼此的房間並直接跨平台加入！
+            <strong>說明：</strong><br>
+            • <strong>Android</strong>：下載完成後開啟安裝。若系統提示未知來源，請允許並選擇仍要安裝。<br>
+            • <strong>Windows</strong>：下載後直接執行 game.exe 即可遊玩，無需安裝。<br>
+            • <strong>連線模式</strong>：進入遊戲後點擊畫面上的「多人連線」，即可建立或加入房間。
         </div>
 
         <div class="footer">
-            這是測試版本 &copy; 2026 ・ <a href="/dev">開發者後台</a>
+            這是測試版本 &copy; 2026 ・ <a href="/dev">後台管理</a>
         </div>
     </div>
 </body>
@@ -515,7 +507,7 @@ class RelayServer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>這是測試版本 開發者驗證</title>
+    <title>開發者驗證</title>
     <style>
         body {{ background: #0d1117; color: #c9d1d9; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
         .card {{ background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 32px; width: 360px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.6); }}
@@ -527,8 +519,8 @@ class RelayServer:
 </head>
 <body>
     <div class="card">
-        <h2>🔒 開發者權限驗證</h2>
-        <p style="color:#8b949e; font-size:14px;">此頁面僅供遊戲開發團隊檢視全服玩家資料庫</p>
+        <h2>開發者驗證</h2>
+        <p style="color:#8b949e; font-size:14px;">此頁面供管理人員檢視玩家資料庫</p>
         <form method="GET" action="/">
             <input type="password" name="key" placeholder="請輸入開發者存取金鑰" required autofocus />
             <button type="submit">解鎖資料庫</button>
@@ -551,12 +543,12 @@ class RelayServer:
                 <td>{plat_badge}</td>
                 <td>第 {p.get('world', 1)} 世界</td>
                 <td><span class="hp">{p.get('hp', 100)} / {p.get('max_hp', 100)}</span></td>
-                <td>⚔️ {p.get('attack', 10)} | 🛡️ {p.get('defense', 0)}</td>
+                <td>{p.get('attack', 10)} / {p.get('defense', 0)}</td>
                 <td>{p.get('play_count', 1)} 次</td>
                 <td>{p.get('last_seen', '-')}</td>
                 <td><code>{p.get('ip', '-')}</code></td>
                 <td>
-                    <button class="btn-del" onclick="confirmDelete('{p.get('name')}')">🗑️ 註銷並清除</button>
+                    <button class="btn-del" onclick="confirmDelete('{p.get('name')}')">註銷清除</button>
                 </td>
             </tr>
             """
@@ -568,7 +560,7 @@ class RelayServer:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>【開發者專用】全服玩家資料庫・這是測試版本 控制台</title>
+    <title>玩家資料庫管理</title>
     <style>
         body {{
             background: #0d1117;
@@ -660,8 +652,8 @@ class RelayServer:
 <body>
     <div class="container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h1 style="margin:0;">🕵️‍♂️【開發者專用】全服玩家資料庫</h1>
-            <a href="/dev/clear_wipes?key={DEV_SECRET_KEY}" onclick="return confirm('確定要清空所有待清除標記嗎？\\n\\n這將解除所有先前被清除帳號的同名限制，任何名稱皆可立即重新登入註冊！')" style="background:#21262d; border:1px solid #30363d; color:#c9d1d9; padding:8px 16px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold;">🧹 解除所有同名限制 (清空待清除佇列)</a>
+            <h1 style="margin:0;">玩家資料庫</h1>
+            <a href="/dev/clear_wipes?key={DEV_SECRET_KEY}" onclick="return confirm('確定要清空所有待清除標記嗎？\\n\\n這將解除所有先前被清除帳號的同名限制，任何名稱皆可立即重新登入註冊！')" style="background:#21262d; border:1px solid #30363d; color:#c9d1d9; padding:8px 16px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold;">清空待清除名單</a>
         </div>
         <div class="stats">
             <div class="stat-card">
@@ -680,7 +672,7 @@ class RelayServer:
                     <th>登入平台</th>
                     <th>世界進度</th>
                     <th>生命值 (HP)</th>
-                    <th>戰力屬性</th>
+                    <th>攻擊 / 防禦</th>
                     <th>遊玩次數</th>
                     <th>最後連線時間</th>
                     <th>連線 IP</th>
@@ -694,7 +686,7 @@ class RelayServer:
     </div>
     <script>
     function confirmDelete(name) {{
-        if (confirm("⚠️【註銷玩家帳號】\\n\\n確定要註銷玩家【" + name + "】嗎？\\n\\n執行後：\\n1. 資料庫立即清除該玩家紀錄\\n2. 該玩家設備本地存檔刪除並強制閃退\\n3. 該玩家重進後可重新輸入暱稱正常開始（不會被重複清除）！")) {{
+        if (confirm("【註銷玩家帳號】\\n\\n確定要註銷玩家【" + name + "】嗎？\\n\\n執行後：\\n1. 資料庫立即清除該玩家紀錄\\n2. 該玩家設備本地存檔刪除並強制閃退\\n3. 該玩家重進後可重新輸入暱稱正常開始（不會被重複清除）！")) {{
             window.location.href = "/dev/delete?key=" + encodeURIComponent("{DEV_SECRET_KEY}") + "&name=" + encodeURIComponent(name);
         }}
     }}
@@ -755,7 +747,7 @@ class RelayServer:
                         ).encode("utf-8")
                     elif path == "/download/apk":
                         vinfo = load_version_info()
-                        apk_fname = vinfo.get("apk_filename", "Rust2D_Latest.apk")
+                        apk_fname = vinfo.get("apk_filename", "game.apk")
                         apk_file = find_release_file(apk_fname)
                         if apk_file and os.path.exists(apk_file):
                             with open(apk_file, "rb") as f:
@@ -772,7 +764,7 @@ class RelayServer:
                             resp = f"HTTP/1.1 404 Not Found\r\nContent-Length: {len(err)}\r\n\r\n".encode("utf-8") + err
                     elif path == "/download/exe":
                         vinfo = load_version_info()
-                        exe_fname = vinfo.get("exe_filename", "Rust2D_Latest.exe")
+                        exe_fname = vinfo.get("exe_filename", "game.exe")
                         exe_file = find_release_file(exe_fname)
                         if exe_file and os.path.exists(exe_file):
                             with open(exe_file, "rb") as f:
