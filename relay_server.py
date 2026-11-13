@@ -110,15 +110,30 @@ class PlayerRegistry:
     def is_wiped(self, name: str) -> bool:
         return name in self.wiped_players
 
+    def consume_wipe(self, name: str) -> bool:
+        """單次消耗清除標記：若在待清除名單中，立即移除並保存，保證同名只被清除一次"""
+        if not name:
+            return False
+        if name in self.wiped_players:
+            self.wiped_players.discard(name)
+            self.save_wiped()
+            print(f"[✅ WIPE CONSUMED] Discharged pending wipe for '{name}'. Name is now free to reuse without repeat wipes.", flush=True)
+            return True
+        return False
+
+    def clear_all_wipes(self) -> None:
+        """清空所有待清除標記，解除全部同名鎖定"""
+        self.wiped_players.clear()
+        self.save_wiped()
+        print("[🧹 ALL WIPES CLEARED] Wiped players registry cleared.", flush=True)
+
     def delete_and_wipe_player(self, name: str) -> bool:
         if not name:
             return False
-        self.wiped_players.add(name)
-        self.save_wiped()
         if name in self.players:
             del self.players[name]
             self.save()
-            print(f"[🗑️ PLAYER WIPED] Removed '{name}' from DB and marked for device wipe.", flush=True)
+            print(f"[🗑️ PLAYER WIPED] Removed '{name}' from DB.", flush=True)
         return True
 
     def clear_wiped_ack(self, name: str) -> None:
@@ -215,12 +230,14 @@ class RelayServer:
         if not name:
             return False
         self.registry.delete_and_wipe_player(name)
+        online = False
         # 1. 直接發送強制清除指令給現有活躍連線
         writer = self.active_writers.pop(name, None)
         if writer:
             try:
                 await self.send_line(writer, "FORCE_WIPE_ACCOUNT")
                 await self.close_writer(writer)
+                online = True
             except Exception:
                 pass
         # 2. 檢查所有房間房主
@@ -229,9 +246,19 @@ class RelayServer:
                 try:
                     await self.send_line(room.host_writer, "FORCE_WIPE_ACCOUNT")
                     await self.close_writer(room.host_writer)
+                    online = True
                 except Exception:
                     pass
-        print(f"[💥 FORCE WIPE EXECUTED] Command dispatched for '{name}'", flush=True)
+        # 3. 若玩家在線，指令已即時送達並清空其本地設備，無需排隊，可自由重設同名！
+        # 若該玩家剛好不在線，才需要放入一次性待清除名冊 (等其下次連線時清除一次並自動銷毀標記)
+        if not online:
+            self.registry.wiped_players.add(name)
+            self.registry.save_wiped()
+            print(f"[🗑️ PLAYER WIPED] Offline player '{name}' queued for 1-time wipe on next connect.", flush=True)
+        else:
+            self.registry.wiped_players.discard(name)
+            self.registry.save_wiped()
+            print(f"[💥 FORCE WIPE EXECUTED] Online player '{name}' wiped and kicked instantly. Name is clean.", flush=True)
         return True
 
     async def send_line(self, writer: asyncio.StreamWriter, line: str) -> bool:
@@ -632,7 +659,10 @@ class RelayServer:
 </head>
 <body>
     <div class="container">
-        <h1>🕵️‍♂️【開發者專用】全服玩家資料庫</h1>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h1 style="margin:0;">🕵️‍♂️【開發者專用】全服玩家資料庫</h1>
+            <a href="/dev/clear_wipes?key={DEV_SECRET_KEY}" onclick="return confirm('確定要清空所有待清除標記嗎？\\n\\n這將解除所有先前被清除帳號的同名限制，任何名稱皆可立即重新登入註冊！')" style="background:#21262d; border:1px solid #30363d; color:#c9d1d9; padding:8px 16px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:bold;">🧹 解除所有同名限制 (清空待清除佇列)</a>
+        </div>
         <div class="stats">
             <div class="stat-card">
                 <div>已登記玩家總數</div>
@@ -664,7 +694,7 @@ class RelayServer:
     </div>
     <script>
     function confirmDelete(name) {{
-        if (confirm("⚠️【重大操作警告】\\n\\n確定要徹底註銷玩家【" + name + "】的帳號嗎？\\n\\n執行後：\\n1. 資料庫立即清除該玩家全部紀錄\\n2. 該玩家手機/電腦的本地存檔進度將直接刪除\\n3. 強制該玩家閃退關閉遊戲，重進後變回初始輸入暱稱畫面！")) {{
+        if (confirm("⚠️【註銷玩家帳號】\\n\\n確定要註銷玩家【" + name + "】嗎？\\n\\n執行後：\\n1. 資料庫立即清除該玩家紀錄\\n2. 該玩家設備本地存檔刪除並強制閃退\\n3. 該玩家重進後可重新輸入暱稱正常開始（不會被重複清除）！")) {{
             window.location.href = "/dev/delete?key=" + encodeURIComponent("{DEV_SECRET_KEY}") + "&name=" + encodeURIComponent(name);
         }}
     }}
@@ -709,6 +739,15 @@ class RelayServer:
                         target_name = qs.get("name", [""])[0]
                         if key == DEV_SECRET_KEY and target_name:
                             await self.wipe_player_and_kick(target_name)
+                        resp = (
+                            f"HTTP/1.1 302 Found\r\n"
+                            f"Location: /dev?key={DEV_SECRET_KEY}\r\n"
+                            f"Connection: close\r\n\r\n"
+                        ).encode("utf-8")
+                    elif path == "/dev/clear_wipes":
+                        key = qs.get("key", [""])[0]
+                        if key == DEV_SECRET_KEY:
+                            self.registry.clear_all_wipes()
                         resp = (
                             f"HTTP/1.1 302 Found\r\n"
                             f"Location: /dev?key={DEV_SECRET_KEY}\r\n"
@@ -838,9 +877,9 @@ class RelayServer:
                         current_player_name = p_name
                         self.active_writers[p_name] = writer
 
-                        # 若該玩家已被管理員註銷，立即下發強制清除進度指令！
-                        if self.registry.is_wiped(p_name):
-                            print(f"[!] Blocked wiped player '{p_name}' sync - dispatching FORCE_WIPE_ACCOUNT", flush=True)
+                        # 若該玩家已被管理員註銷，單次下發強制清除進度指令並立即銷毀標記（同名不再重複清除）！
+                        if self.registry.consume_wipe(p_name):
+                            print(f"[!] Consumed pending wipe for '{p_name}' - dispatching FORCE_WIPE_ACCOUNT", flush=True)
                             await self.send_line(writer, "FORCE_WIPE_ACCOUNT")
                             if current_player_name in self.active_writers and self.active_writers[current_player_name] == writer:
                                 self.active_writers.pop(current_player_name, None)
@@ -876,7 +915,8 @@ class RelayServer:
                     host_name = parts[1].strip() if len(parts) >= 2 and parts[1].strip() else "生還者"
                     is_public = (parts[2].strip() != "0") if len(parts) >= 3 else True
 
-                    if self.registry.is_wiped(host_name):
+                    if self.registry.consume_wipe(host_name):
+                        print(f"[!] Consumed pending wipe for host '{host_name}' - dispatching FORCE_WIPE_ACCOUNT", flush=True)
                         await self.send_line(writer, "FORCE_WIPE_ACCOUNT")
                         if current_player_name in self.active_writers and self.active_writers[current_player_name] == writer:
                             self.active_writers.pop(current_player_name, None)
@@ -955,7 +995,8 @@ class RelayServer:
                     if len(parts) >= 2:
                         current_player_name = parts[1].strip()
                         self.active_writers[current_player_name] = writer
-                        if self.registry.is_wiped(current_player_name):
+                        if self.registry.consume_wipe(current_player_name):
+                            print(f"[!] Consumed pending wipe for client '{current_player_name}' - dispatching FORCE_WIPE_ACCOUNT", flush=True)
                             await self.send_line(writer, "FORCE_WIPE_ACCOUNT")
                             if current_player_name in self.active_writers and self.active_writers[current_player_name] == writer:
                                 self.active_writers.pop(current_player_name, None)
