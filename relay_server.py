@@ -11,6 +11,7 @@ import os
 import signal
 import sys
 import time
+import urllib.parse
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple
 
@@ -36,8 +37,46 @@ class Room:
 class PlayerRegistry:
     def __init__(self, db_path: str = DB_FILE) -> None:
         self.db_path = db_path
+        self.wiped_path = "wiped_players.json"
         self.players: Dict[str, dict] = {}
+        self.wiped_players: set = set()
         self.load()
+        self.load_wiped()
+
+    def load_wiped(self) -> None:
+        if os.path.exists(self.wiped_path):
+            try:
+                with open(self.wiped_path, "r", encoding="utf-8") as f:
+                    self.wiped_players = set(json.load(f))
+                print(f"[*] Loaded {len(self.wiped_players)} wiped players from {self.wiped_path}", flush=True)
+            except Exception as e:
+                print(f"[!] Failed to load wiped db: {e}", flush=True)
+
+    def save_wiped(self) -> None:
+        try:
+            with open(self.wiped_path, "w", encoding="utf-8") as f:
+                json.dump(list(self.wiped_players), f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[!] Failed to save wiped db: {e}", flush=True)
+
+    def is_wiped(self, name: str) -> bool:
+        return name in self.wiped_players
+
+    def delete_and_wipe_player(self, name: str) -> bool:
+        if not name:
+            return False
+        self.wiped_players.add(name)
+        self.save_wiped()
+        if name in self.players:
+            del self.players[name]
+            self.save()
+            print(f"[🗑️ PLAYER WIPED] Removed '{name}' from DB and marked for device wipe.", flush=True)
+        return True
+
+    def clear_wiped_ack(self, name: str) -> None:
+        if name in self.wiped_players:
+            self.wiped_players.discard(name)
+            self.save_wiped()
 
     def load(self) -> None:
         if os.path.exists(self.db_path):
@@ -67,7 +106,9 @@ class PlayerRegistry:
         ip: str = "",
         action: str = "ONLINE",
     ) -> None:
-        if not name or name == "未知" or name == "生還者":
+        if not name or name == "未知":
+            return
+        if self.is_wiped(name):
             return
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if name not in self.players:
@@ -120,6 +161,30 @@ class RelayServer:
         self.rooms: Dict[int, Room] = {}
         self.next_room_id: int = 1
         self.registry = PlayerRegistry()
+        self.active_writers: Dict[str, asyncio.StreamWriter] = {}
+
+    async def wipe_player_and_kick(self, name: str) -> bool:
+        if not name:
+            return False
+        self.registry.delete_and_wipe_player(name)
+        # 1. 直接發送強制清除指令給現有活躍連線
+        writer = self.active_writers.pop(name, None)
+        if writer:
+            try:
+                await self.send_line(writer, "FORCE_WIPE_ACCOUNT")
+                await self.close_writer(writer)
+            except Exception:
+                pass
+        # 2. 檢查所有房間房主
+        for rid, room in list(self.rooms.items()):
+            if room.host_name == name:
+                try:
+                    await self.send_line(room.host_writer, "FORCE_WIPE_ACCOUNT")
+                    await self.close_writer(room.host_writer)
+                except Exception:
+                    pass
+        print(f"[💥 FORCE WIPE EXECUTED] Command dispatched for '{name}'", flush=True)
+        return True
 
     async def send_line(self, writer: asyncio.StreamWriter, line: str) -> bool:
         try:
@@ -187,10 +252,13 @@ class RelayServer:
                 <td>{p.get('play_count', 1)} 次</td>
                 <td>{p.get('last_seen', '-')}</td>
                 <td><code>{p.get('ip', '-')}</code></td>
+                <td>
+                    <button class="btn-del" onclick="confirmDelete('{p.get('name')}')">🗑️ 註銷並清除</button>
+                </td>
             </tr>
             """
         if not rows:
-            rows = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#888;">尚未記錄到玩家資料</td></tr>'
+            rows = '<tr><td colspan="9" style="text-align:center; padding:20px; color:#888;">尚未記錄到玩家資料</td></tr>'
 
         return f"""<!DOCTYPE html>
 <html lang="zh-TW">
@@ -269,6 +337,21 @@ class RelayServer:
         .badge.pe {{ background: #238636; color: #fff; }}
         .hp {{ color: #e74c3c; font-weight: bold; }}
         code {{ background: #21262d; padding: 2px 6px; border-radius: 4px; font-size: 12px; }}
+        .btn-del {{
+            background: #da3633;
+            color: #ffffff;
+            border: 1px solid rgba(248,81,73,0.4);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        .btn-del:hover {{
+            background: #b62324;
+            transform: scale(1.04);
+        }}
     </style>
 </head>
 <body>
@@ -295,6 +378,7 @@ class RelayServer:
                     <th>遊玩次數</th>
                     <th>最後連線時間</th>
                     <th>連線 IP</th>
+                    <th>管理操作</th>
                 </tr>
             </thead>
             <tbody>
@@ -302,6 +386,13 @@ class RelayServer:
             </tbody>
         </table>
     </div>
+    <script>
+    function confirmDelete(name) {{
+        if (confirm("⚠️【重大操作警告】\\n\\n確定要徹底註銷玩家【" + name + "】的帳號嗎？\\n\\n執行後：\\n1. 資料庫立即清除該玩家全部紀錄\\n2. 該玩家手機/電腦的本地存檔進度將直接刪除\\n3. 強制該玩家閃退關閉遊戲，重進後變回初始輸入暱稱畫面！")) {{
+            window.location.href = "/dev/delete?key=" + encodeURIComponent("{DEV_SECRET_KEY}") + "&name=" + encodeURIComponent(name);
+        }}
+    }}
+    </script>
 </body>
 </html>"""
 
@@ -324,17 +415,32 @@ class RelayServer:
                 if not line:
                     continue
 
-                # 0. 支援 HTTP 瀏覽器即時查看 (免設定、支援網頁表單解鎖)
-                if line.startswith("GET ") and "HTTP/" in line:
+                # 0. 支援 HTTP 瀏覽器即時查看 (免設定、支援網頁表單解鎖與帳號註銷)
+                if (line.startswith("GET ") or line.startswith("POST ")) and "HTTP/" in line:
                     while True:
                         hdr = await reader.readline()
                         if not hdr or hdr == b"\r\n" or hdr == b"\n":
                             break
-                    path = line.split(" ")[1] if len(line.split(" ")) > 1 else "/"
+                    raw_path = line.split(" ")[1] if len(line.split(" ")) > 1 else "/"
+                    parsed = urllib.parse.urlparse(raw_path)
+                    path = parsed.path
+                    qs = urllib.parse.parse_qs(parsed.query)
+
                     if path == "/favicon.ico":
                         resp = b"HTTP/1.1 204 No Content\r\n\r\n"
+                    elif path == "/dev/delete":
+                        key = qs.get("key", [""])[0]
+                        target_name = qs.get("name", [""])[0]
+                        if key == DEV_SECRET_KEY and target_name:
+                            await self.wipe_player_and_kick(target_name)
+                        resp = (
+                            f"HTTP/1.1 302 Found\r\n"
+                            f"Location: /dev?key={DEV_SECRET_KEY}\r\n"
+                            f"Connection: close\r\n\r\n"
+                        ).encode("utf-8")
                     else:
-                        is_auth = (f"key={DEV_SECRET_KEY}" in path)
+                        key = qs.get("key", [""])[0]
+                        is_auth = (key == DEV_SECRET_KEY)
                         html_bytes = self.build_dev_html(is_auth).encode("utf-8")
                         resp = (
                             f"HTTP/1.1 200 OK\r\n"
@@ -367,11 +473,41 @@ class RelayServer:
                         await self.send_line(writer, "DEV_ERR|ACCESS_DENIED")
                     continue
 
+                # 1b. 開發者協議: DEV_DELETE_PLAYER|<secret_key>|<target_name>
+                if line.startswith("DEV_DELETE_PLAYER|"):
+                    parts = line.split("|")
+                    if len(parts) >= 3 and parts[1].strip() == DEV_SECRET_KEY:
+                        target = parts[2].strip()
+                        await self.wipe_player_and_kick(target)
+                        await self.send_line(writer, f"DEV_DELETE_OK|{target}")
+                    else:
+                        await self.send_line(writer, "DEV_ERR|ACCESS_DENIED")
+                    continue
+
+                # 1c. 客戶端清除完成回報: WIPE_ACK|<player_name>
+                if line.startswith("WIPE_ACK|"):
+                    parts = line.split("|", 1)
+                    if len(parts) >= 2:
+                        self.registry.clear_wiped_ack(parts[1].strip())
+                    continue
+
                 # 2. 玩家同步狀態封包: PLAYER_SYNC|<name>|<platform>|<world>|<hp>|<max_hp>|<atk>|<def>
                 if line.startswith("PLAYER_SYNC|"):
                     parts = line.split("|")
                     if len(parts) >= 8:
                         p_name = parts[1].strip()
+                        current_player_name = p_name
+                        self.active_writers[p_name] = writer
+
+                        # 若該玩家已被管理員註銷，立即下發強制清除進度指令！
+                        if self.registry.is_wiped(p_name):
+                            print(f"[!] Blocked wiped player '{p_name}' sync - dispatching FORCE_WIPE_ACCOUNT", flush=True)
+                            await self.send_line(writer, "FORCE_WIPE_ACCOUNT")
+                            if current_player_name in self.active_writers and self.active_writers[current_player_name] == writer:
+                                self.active_writers.pop(current_player_name, None)
+                            await self.close_writer(writer)
+                            break
+
                         p_plat = parts[2].strip()
                         try:
                             p_world = int(parts[3])
@@ -381,7 +517,6 @@ class RelayServer:
                             p_def = int(float(parts[7]))
                         except Exception:
                             p_world, p_hp, p_max_hp, p_atk, p_def = 1, 100, 100, 10, 0
-                        current_player_name = p_name
                         self.registry.record_player(
                             name=p_name,
                             platform=p_plat,
@@ -393,6 +528,7 @@ class RelayServer:
                             ip=client_ip,
                             action="SYNC",
                         )
+                        await self.send_line(writer, "PLAYER_SYNC_OK")
                     continue
 
                 # 3. 房主註冊房間: RELAY_HOST|<host_name>|<is_public:0/1>
@@ -401,7 +537,15 @@ class RelayServer:
                     host_name = parts[1].strip() if len(parts) >= 2 and parts[1].strip() else "生還者"
                     is_public = (parts[2].strip() != "0") if len(parts) >= 3 else True
 
+                    if self.registry.is_wiped(host_name):
+                        await self.send_line(writer, "FORCE_WIPE_ACCOUNT")
+                        if current_player_name in self.active_writers and self.active_writers[current_player_name] == writer:
+                            self.active_writers.pop(current_player_name, None)
+                        await self.close_writer(writer)
+                        break
+
                     current_player_name = host_name
+                    self.active_writers[host_name] = writer
                     self.registry.record_player(
                         name=host_name,
                         ip=client_ip,
@@ -471,6 +615,13 @@ class RelayServer:
                     parts = line.split("|")
                     if len(parts) >= 2:
                         current_player_name = parts[1].strip()
+                        self.active_writers[current_player_name] = writer
+                        if self.registry.is_wiped(current_player_name):
+                            await self.send_line(writer, "FORCE_WIPE_ACCOUNT")
+                            if current_player_name in self.active_writers and self.active_writers[current_player_name] == writer:
+                                self.active_writers.pop(current_player_name, None)
+                            await self.close_writer(writer)
+                            break
                         world_id = int(parts[2]) if len(parts) >= 3 and parts[2].isdigit() else 1
                         self.registry.record_player(
                             name=current_player_name,
@@ -537,6 +688,8 @@ class RelayServer:
                     await self.send_line(
                         my_room.host_writer, f"RELAY_PEER_LEFT|{my_client_id}"
                     )
+            if current_player_name in self.active_writers and self.active_writers[current_player_name] == writer:
+                self.active_writers.pop(current_player_name, None)
             await self.close_writer(writer)
 
 
