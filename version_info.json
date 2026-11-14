@@ -1,6 +1,6 @@
-﻿{
-    "version":  "v0.67.98",
-    "version_code":  6798,
+{
+    "version":  "v0.67.101",
+    "version_code":  6801,
     "release_date":  "2026-11-14",
     "title":  "背包操作與多人副本同步更新",
     "changelog":  [
@@ -10,5 +10,6 @@
                       "連線通訊與斷線重連邏輯優化"
                   ],
     "apk_filename":  "game.apk",
-    "exe_filename":  "game.exe"
+    "exe_filename":  "game.exe",
+    "zip_filename":  "game.zip"
 }

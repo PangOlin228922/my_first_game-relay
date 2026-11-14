@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Rust2D / 幫我試玩看看 全球多人大廳與封包中繼伺服器 (Global Lobby & TCP Relay Server)
 + 開發者專用：全服遊玩玩家資料庫 (Developer-Only Player Analytics & Registry)
@@ -34,8 +34,8 @@ def find_release_file(filename: str):
     return None
 
 DEFAULT_VERSION_INFO = {
-    "version": "v0.67.98",
-    "version_code": 6798,
+    "version": "v0.67.101",
+    "version_code": 6801,
     "release_date": "2026-11-14",
     "title": "背包操作與多人副本同步更新",
     "changelog": [
@@ -44,7 +44,8 @@ DEFAULT_VERSION_INFO = {
         "優化客戶端版本比對機制與自動下載更新流程"
     ],
     "apk_filename": "game.apk",
-    "exe_filename": "game.exe"
+    "exe_filename": "game.exe",
+    "zip_filename": "game.zip"
 }
 
 def load_version_info() -> dict:
@@ -300,8 +301,10 @@ class RelayServer:
 
         apk_path = find_release_file(vinfo.get("apk_filename", "game.apk"))
         exe_path = find_release_file(vinfo.get("exe_filename", "game.exe"))
+        zip_path = find_release_file(vinfo.get("zip_filename", "game.zip"))
         apk_size = f"{os.path.getsize(apk_path) / 1024:.1f} KB" if (apk_path and os.path.exists(apk_path)) else "168 KB"
         exe_size = f"{os.path.getsize(exe_path) / 1024:.1f} KB" if (exe_path and os.path.exists(exe_path)) else "582 KB"
+        zip_size = f"{os.path.getsize(zip_path) / 1024:.1f} KB" if (zip_path and os.path.exists(zip_path)) else "582 KB"
 
         return f"""<!DOCTYPE html>
 <html lang="zh-TW">
@@ -478,13 +481,24 @@ class RelayServer:
 
         <div class="btn-group">
             <a href="/download/apk" class="btn btn-apk">
-                <span>下載 Android 版</span>
+                <span>📱 下載 Android 手機版</span>
                 <small>game.apk ({apk_size})</small>
             </a>
+            <a href="/download/zip" class="btn btn-zip">
+                <span>💻 下載 Windows 免安裝版 (ZIP 推薦)</span>
+                <small>game.zip ({zip_size})・解壓即玩不誤擋</small>
+            </a>
             <a href="/download/exe" class="btn btn-exe">
-                <span>下載 Windows 版</span>
+                <span>💾 下載單一可執行檔 (EXE)</span>
                 <small>game.exe ({exe_size})</small>
             </a>
+        </div>
+
+        <div class="guide-box" style="margin-bottom: 18px; border-color: #d29922; background: rgba(210,153,34,0.08);">
+            <strong style="color: #f1e05a;">⚠️ 若 Chrome 下載提示「這個檔案不安全」？</strong><br>
+            本遊戲為獨立開發版本，尚未購買微軟商業認證簽章，故瀏覽器下載 EXE 時可能彈出安全警示（無任何惡意行為，請安心）：<br>
+            • <strong>方式 1（推薦）</strong>：直接點擊上方<strong>「下載 Windows 免安裝版 (ZIP)」</strong>，壓縮包不會被 Chrome 封鎖阻擋。<br>
+            • <strong>方式 2（保留 EXE）</strong>：點擊 Chrome 封鎖提示旁的<strong>「...」或「保留」➔「仍要保留」</strong>（或按鍵盤 <code>Ctrl + J</code> 開啟下載頁面選擇保留），即可正常執行！
         </div>
 
         <div class="card-section">
@@ -756,9 +770,28 @@ class RelayServer:
                     elif path == "/download":
                         resp = (
                             f"HTTP/1.1 302 Found\r\n"
-                            f"Location: /download/exe\r\n"
+                            f"Location: /download/zip\r\n"
                             f"Connection: close\r\n\r\n"
                         ).encode("utf-8")
+                    elif path == "/download/zip":
+                        vinfo = load_version_info()
+                        zip_fname = vinfo.get("zip_filename", "game.zip")
+                        zip_file = find_release_file(zip_fname)
+                        if zip_file and os.path.exists(zip_file):
+                            with open(zip_file, "rb") as f:
+                                data = f.read()
+                            ver_tag = vinfo.get("version", "latest")
+                            resp = (
+                                f"HTTP/1.1 200 OK\r\n"
+                                f"Content-Type: application/zip\r\n"
+                                f"Content-Disposition: attachment; filename=\"Rust2D_{ver_tag}.zip\"\r\n"
+                                f"X-Content-Type-Options: nosniff\r\n"
+                                f"Content-Length: {len(data)}\r\n"
+                                f"Connection: close\r\n\r\n"
+                            ).encode("utf-8") + data
+                        else:
+                            err = b"ZIP file not found on server."
+                            resp = f"HTTP/1.1 404 Not Found\r\nContent-Length: {len(err)}\r\n\r\n".encode("utf-8") + err
                     elif path == "/download/apk":
                         vinfo = load_version_info()
                         apk_fname = vinfo.get("apk_filename", "game.apk")
@@ -787,6 +820,7 @@ class RelayServer:
                                 f"HTTP/1.1 200 OK\r\n"
                                 f"Content-Type: application/octet-stream\r\n"
                                 f"Content-Disposition: attachment; filename=\"{exe_fname}\"\r\n"
+                                f"X-Content-Type-Options: nosniff\r\n"
                                 f"Content-Length: {len(data)}\r\n"
                                 f"Connection: close\r\n\r\n"
                             ).encode("utf-8") + data
