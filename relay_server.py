@@ -34,8 +34,8 @@ def find_release_file(filename: str):
     return None
 
 DEFAULT_VERSION_INFO = {
-    "version": "v0.67.114",
-    "version_code": 6814,
+    "version": "v0.67.115",
+    "version_code": 6815,
     "release_date": "2026-11-14",
     "title": "背包操作與多人副本同步更新",
     "changelog": [
