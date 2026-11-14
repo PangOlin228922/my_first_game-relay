@@ -34,8 +34,8 @@ def find_release_file(filename: str):
     return None
 
 DEFAULT_VERSION_INFO = {
-    "version": "v0.67.102",
-    "version_code": 6802,
+    "version": "v0.67.103",
+    "version_code": 6803,
     "release_date": "2026-11-14",
     "title": "背包操作與多人副本同步更新",
     "changelog": [
@@ -484,7 +484,7 @@ class RelayServer:
                 <span>下載 Android 版</span>
                 <small>game.apk ({apk_size})</small>
             </a>
-            <a href="/download/zip" class="btn btn-win">
+            <a href="/download/zip" class="btn btn-exe">
                 <span>下載 Windows 版</span>
                 <small>game.zip ({zip_size})</small>
             </a>
@@ -772,7 +772,7 @@ class RelayServer:
                             resp = (
                                 f"HTTP/1.1 200 OK\r\n"
                                 f"Content-Type: application/zip\r\n"
-                                f"Content-Disposition: attachment; filename=\"Rust2D_{ver_tag}.zip\"\r\n"
+                                f"Content-Disposition: attachment; filename=\"game.zip\"\r\n"
                                 f"X-Content-Type-Options: nosniff\r\n"
                                 f"Content-Length: {len(data)}\r\n"
                                 f"Connection: close\r\n\r\n"
