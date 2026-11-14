@@ -34,8 +34,8 @@ def find_release_file(filename: str):
     return None
 
 DEFAULT_VERSION_INFO = {
-    "version": "v0.67.101",
-    "version_code": 6801,
+    "version": "v0.67.102",
+    "version_code": 6802,
     "release_date": "2026-11-14",
     "title": "背包操作與多人副本同步更新",
     "changelog": [
@@ -481,24 +481,13 @@ class RelayServer:
 
         <div class="btn-group">
             <a href="/download/apk" class="btn btn-apk">
-                <span>📱 下載 Android 手機版</span>
+                <span>下載 Android 版</span>
                 <small>game.apk ({apk_size})</small>
             </a>
-            <a href="/download/zip" class="btn btn-zip">
-                <span>💻 下載 Windows 免安裝版 (ZIP 推薦)</span>
-                <small>game.zip ({zip_size})・解壓即玩不誤擋</small>
+            <a href="/download/zip" class="btn btn-win">
+                <span>下載 Windows 版</span>
+                <small>game.zip ({zip_size})</small>
             </a>
-            <a href="/download/exe" class="btn btn-exe">
-                <span>💾 下載單一可執行檔 (EXE)</span>
-                <small>game.exe ({exe_size})</small>
-            </a>
-        </div>
-
-        <div class="guide-box" style="margin-bottom: 18px; border-color: #d29922; background: rgba(210,153,34,0.08);">
-            <strong style="color: #f1e05a;">⚠️ 若 Chrome 下載提示「這個檔案不安全」？</strong><br>
-            本遊戲為獨立開發版本，尚未購買微軟商業認證簽章，故瀏覽器下載 EXE 時可能彈出安全警示（無任何惡意行為，請安心）：<br>
-            • <strong>方式 1（推薦）</strong>：直接點擊上方<strong>「下載 Windows 免安裝版 (ZIP)」</strong>，壓縮包不會被 Chrome 封鎖阻擋。<br>
-            • <strong>方式 2（保留 EXE）</strong>：點擊 Chrome 封鎖提示旁的<strong>「...」或「保留」➔「仍要保留」</strong>（或按鍵盤 <code>Ctrl + J</code> 開啟下載頁面選擇保留），即可正常執行！
         </div>
 
         <div class="card-section">
@@ -510,9 +499,8 @@ class RelayServer:
 
         <div class="guide-box">
             <strong>說明：</strong><br>
-            • <strong>Android</strong>：下載完成後開啟安裝。若系統提示未知來源，請允許並選擇仍要安裝。<br>
-            • <strong>Windows</strong>：下載後直接執行 game.exe 即可遊玩，無需安裝。<br>
-            • <strong>連線模式</strong>：進入遊戲後點擊畫面上的「多人連線」，即可建立或加入房間。
+            • <strong>Android</strong>：下載安裝後即可遊玩。<br>
+            • <strong>Windows</strong>：下載解壓縮後執行 game.exe 即可遊玩。
         </div>
 
         <div class="footer">
